@@ -1,68 +1,6 @@
 (ns sudoku.core-test
   (:require [clojure.test :refer [deftest is testing]]
-            [sudoku.core  :refer [coord-to-idx
-                                  all-holes
-                                  first-hole
-                                  most-promising-hole
-                                  indexes-crossing-at
-                                  idx-to-coord
-                                  num-holes-at
-                                  possible-vals-at-hole
-                                  solve-sudoku
-                                  solved?]]))
-
-(def sample-board
-  [[0 4 9 0 0 8 6 0 5]
-   [0 0 3 0 0 7 0 0 0]
-   [0 0 0 0 0 0 0 3 0]
-   [0 0 0 4 0 0 8 0 0]
-   [0 6 0 8 1 5 0 2 0]
-   [0 0 1 0 0 9 0 0 0]
-   [0 1 0 0 0 0 0 0 0]
-   [0 0 0 6 0 0 4 0 0]
-   [8 0 4 5 0 0 3 9 0]])
-
-(solved? sample-board) ; false
-
-(sort (indexes-crossing-at (coord-to-idx [2 2])))
-; (0 1 2 9 10 11 18 19 20 21 22 23 24 25 26 29 38 47 56 65 74)
-
-(num-holes-at (coord-to-idx [2 2]) sample-board) ; 15
-
-(all-holes sample-board)
-; ([0 0] [0 3] [0 4] [0 7] [1 0]
-;  [1 1] [1 3] [1 4] [1 6] [1 7] [1 8])
-;  [2 0] [2 1] [2 2] [2 3] [2 4] [2 5] [2 6] [2 8]
-;  [3 0] [3 1] [3 2] [3 4] [3 5] [3 7] [3 8]
-;  [4 0] [4 2] [4 6] [4 8]
-;  [5 0] [5 1] [5 3] [5 4] [5 6] [5 7] [5 8]
-;  [6 0] [6 2] [6 3] [6 4] [6 5] [6 6] [6 7] [6 8]
-;  [7 0] [7 1] [7 2] [7 4] [7 5] [7 7] [7 8]
-;  [8 1] [8 4] [8 5] [8 8])
-
-(first-hole sample-board) ; [0 0]
-
-(most-promising-hole sample-board) ; [8 5]
-
-(possible-vals-at-hole sample-board [0 0]) ; #{7 1 2}
-(possible-vals-at-hole sample-board [8 5]) ; #{1 2}
-(possible-vals-at-hole sample-board [2 2]) ; #{7 6 2 5 8}
-
-(solve-sudoku sample-board)
-; [[1 4 9 2 3 8 6 7 5]
-;  [6 2 3 9 5 7 1 4 8]
-;  [7 5 8 1 4 6 2 3 9]
-;  [9 3 5 4 7 2 8 6 1]
-;  [4 6 7 8 1 5 9 2 3]
-;  [2 8 1 3 6 9 7 5 4]
-;  [3 1 6 7 9 4 5 8 2]
-;  [5 9 2 6 8 3 4 1 7]
-;  [8 7 4 5 2 1 3 9 6]]
-
-(every? identity
-        (for [r (range 9)
-              c (range 9)]
-          (= [r c] (idx-to-coord (coord-to-idx [r c])))))
+            [sudoku.core  :refer [solve-sudoku]]))
 
 (deftest sudoku-test
   (testing "board 1"
@@ -254,6 +192,7 @@
             [3 1 9 4 7 5 2 6 8]
             [8 5 6 1 2 9 7 4 3]
             [2 7 4 8 3 6 1 5 9]])))
+
   (testing "board 10"
     (is (= (solve-sudoku
             [[0 0 0 0 0 0 0 1 0]

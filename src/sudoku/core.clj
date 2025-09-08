@@ -1,11 +1,6 @@
 (ns sudoku.core
   (:require [clojure.set]))
 
-(defn in?
-  "true if vector contains elm"
-  [coll elm]
-  (some #(= elm %) coll))
-
 (def rows
   [[0   1  2  3  4  5  6  7  8]
    [9  10 11 12 13 14 15 16 17]
@@ -28,7 +23,7 @@
    [7 16 25 34 43 52 61 70 79]
    [8 17 26 35 44 53 62 71 80]])
 
-(def squares
+(def quadrants
   [[0   1  2  9 10 11 18 19 20]
    [3   4  5 12 13 14 21 22 23]
    [6   7  8 15 16 17 24 25 26]
@@ -40,25 +35,29 @@
    [60 61 62 69 70 71 78 79 80]])
 
 (def blocks
-  (concat rows cols squares))
+  (concat rows cols quadrants))
+
+(defn in?
+  "true if vector contains item"
+  [coll item]
+  (some #(= item %) coll))
 
 (defn idx-to-coord
-  "returns coordinate of idx"
+  "coordinate of idx"
   [idx]
   ((juxt #(quot % 9) #(rem % 9)) idx))
 
 (defn coord-to-idx
-  "returns index of coordinate"
+  "index of coordinate"
   [[row col]]
   (+ (* 9 row) col))
 
-(defn solved?
-  "is board solved?"
+(defn board-solved?
   [board]
-  (empty? (filter #(zero? %) (flatten board))))
+  (empty? (filter zero? (flatten board))))
 
 (defn indexes-crossing-at
-  "returns indexes of rows, cols, squares crossing at idx"
+  "indexes of rows, cols, quadrants crossing at idx"
   [idx]
   (distinct
    (flatten
@@ -66,40 +65,8 @@
           :when (in? block idx)]
       block))))
 
-(defn num-holes-at
-  "returns number of holes crossing at idx"
-  [idx board]
-  (reduce
-   (fn [acc idx] (if (zero? (get-in board (idx-to-coord idx))) (inc acc) acc))
-   0
-   (indexes-crossing-at idx)))
-
-(defn all-holes
-  "returns coordinates of all holes in board"
-  [board]
-  (for [x (range 9)
-        y (range 9)
-        :when (zero? (get-in board [x y]))]
-    [x y]))
-
-#_{:clojure-lsp/ignore [:clojure-lsp/unused-public-var]}
-(defn first-hole
-  "returns coordinate of first hole in board"
-  [board]
-  (first (all-holes board)))
-
-;; TODO: most promising hole is the one with least number of possible values
-(defn most-promising-hole
-  "most promising hole has the least number of holes in rows, cols, squares"
-  [board]
-  (first
-   (apply min-key second
-          (for [hole (all-holes board)
-                :let [num-holes (num-holes-at (coord-to-idx hole) board)]]
-            [hole num-holes]))))
-
 (defn possible-vals-at-hole
-  "returns set of possible values to insert at hole"
+  "set of possible values at hole"
   [board hole]
   (clojure.set/difference
    (set (range 1 10))
@@ -109,19 +76,43 @@
           :when (not (zero? val))]
       val))))
 
+(defn all-holes
+  "coordinates of all holes on board"
+  [board]
+  (for [x (range 9)
+        y (range 9)
+        :when (zero? (get-in board [x y]))]
+    [x y]))
+
+#_{:clojure-lsp/ignore [:clojure-lsp/unused-public-var]}
+(defn first-hole
+  "coordinate of first hole in board"
+  [board]
+  (first (all-holes board)))
+
+;; most promising hole is the one with least number of possible values
+(defn most-promising-hole
+  "hole with the least number of possible values in row, col, quadrant"
+  [board]
+  (first
+   (apply min-key second
+          (for [hole (all-holes board)
+                :let [num-possible-values (count (possible-vals-at-hole board hole))]]
+            [hole num-possible-values]))))
+
 (defn set-val-in-hole
-  "creates a new board with val in hole"
+  "new board with val in hole"
   [board hole val]
   (assoc-in board hole val))
 
 (defn solve-sudoku-rec [[board & boards]]
-  (if (solved? board)
+  (if (board-solved? board)
     board
     (let [hole (most-promising-hole board)
           vals (possible-vals-at-hole board hole)]
       (recur (apply conj boards (map
                                  #(set-val-in-hole board hole %)
-                                 vals)))))) ; #'sudoku.core/solve-sudoku
+                                 vals))))))
 
 (defn solve-sudoku [board]
   (solve-sudoku-rec [board]))
