@@ -92,7 +92,7 @@
 
 ;; most promising hole is the one with least number of possible values
 (defn most-promising-hole
-  "hole with the least number of possible values in row, col, quadrant"
+  "coordinate of hole with the least number of possible values in row, col, quadrant"
   [board]
   (first
    (apply min-key second
