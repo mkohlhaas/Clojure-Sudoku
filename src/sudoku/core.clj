@@ -1,6 +1,11 @@
 (ns sudoku.core
   (:require [clojure.set]))
 
+(defn in?
+  "true if vector contains elm"
+  [coll elm]
+  (some #(= elm %) coll))
+
 (def rows
   [[0   1  2  3  4  5  6  7  8]
    [9  10 11 12 13 14 15 16 17]
@@ -34,92 +39,89 @@
    [57 58 59 66 67 68 75 76 77]
    [60 61 62 69 70 71 78 79 80]])
 
-(defn flip [op]
-  (fn [& args]
-    (apply op (reverse args))))
-
-(defn idx-to-coord [idx]
-  ((juxt (partial (flip quot) 9) (partial (flip rem) 9)) idx))
-
-(defn coord-to-idx [[x y]]
-  (+ 9 (* 9 x)))
-
-(idx-to-coord 39) ; [4 3]
-
 (def blocks
   (concat rows cols squares))
 
-(defn in?
-  "true if coll contains elm"
-  [coll elm]
-  (some #(= elm %) coll))
+(defn idx-to-coord
+  "returns coordinate of idx"
+  [idx]
+  ((juxt #(quot % 9) #(rem % 9)) idx))
 
-(def sample-board
-  [[0 4 9 0 0 8 6 0 5]
-   [0 0 3 0 0 7 0 0 0]
-   [0 0 0 0 0 0 0 3 0]
-   [0 0 0 4 0 0 8 0 0]
-   [0 6 0 8 1 5 0 2 0]
-   [0 0 1 0 0 9 0 0 0]
-   [0 1 0 0 0 0 0 0 0]
-   [0 0 0 6 0 0 4 0 0]
-   [8 0 4 5 0 0 3 9 0]])
+(defn coord-to-idx
+  "returns index of coordinate"
+  [[row col]]
+  (+ (* 9 row) col))
 
-(defn solved? [board]
+(defn solved?
+  "is board solved?"
+  [board]
   (empty? (filter #(zero? %) (flatten board))))
 
-(defn find-first-hole [board]
+(defn indexes-crossing-at
+  "returns indexes of rows, cols, squares crossing at idx"
+  [idx]
+  (distinct
+   (flatten
+    (for [block blocks
+          :when (in? block idx)]
+      block))))
+
+(defn num-holes-at
+  "returns number of holes crossing at idx"
+  [idx board]
+  (reduce
+   (fn [acc idx] (if (zero? (get-in board (idx-to-coord idx))) (inc acc) acc))
+   0
+   (indexes-crossing-at idx)))
+
+(defn all-holes
+  "returns coordinates of all holes in board"
+  [board]
+  (for [x (range 9)
+        y (range 9)
+        :when (zero? (get-in board [x y]))]
+    [x y]))
+
+#_{:clojure-lsp/ignore [:clojure-lsp/unused-public-var]}
+(defn first-hole
+  "returns coordinate of first hole in board"
+  [board]
+  (first (all-holes board)))
+
+;; TODO: most promising hole is the one with least number of possible values
+(defn most-promising-hole
+  "most promising hole has the least number of holes in rows, cols, squares"
+  [board]
   (first
-   (for [x (range 9)
-         y (range 9)
-         :when (zero? (get-in board [x y]))]
-     [x y])))
+   (apply min-key second
+          (for [hole (all-holes board)
+                :let [num-holes (num-holes-at (coord-to-idx hole) board)]]
+            [hole num-holes]))))
 
-(find-first-hole sample-board) ; [2 2]
-
-(defn find-rows-cols-block [idx]
-  (for [block blocks
-        :when (in? block idx)]
-    block))
-
-;; TODO: wrong!!!
-(flatten (find-rows-cols-block (coord-to-idx [2 2]))) ; (27 28 29 30 31 32 33 34 35 0 9 18 27 36 45 54 63 72 27 28 29 36 37 38 45 46 47)
-
-(defn possible-vals [board idxs]
+(defn possible-vals-at-hole
+  "returns set of possible values to insert at hole"
+  [board hole]
   (clojure.set/difference
    (set (range 1 10))
    (set
-    (for [idx idxs
+    (for [idx (indexes-crossing-at (coord-to-idx hole))
           :let [val (get-in board (idx-to-coord idx))]
           :when (not (zero? val))]
       val))))
 
-(possible-vals sample-board '(27 28 29 30 31 32 33 34 35 0 9 18 27 36 45 54 63 72 27 28 29 36 37 38 45 46 47))
-; #{7 6 3 2 5}
+(defn set-val-in-hole
+  "creates a new board with val in hole"
+  [board hole val]
+  (assoc-in board hole val))
 
-(defn solve-sudoku [[board & boards]]
-  #p board
-  #p (count boards)
-  #p (first boards)
+(defn solve-sudoku-rec [[board & boards]]
   (if (solved? board)
     board
-    (let [hole-coord (find-first-hole board)
-          hole       (coord-to-idx hole-coord)
-          blocks     (flatten (find-rows-cols-block hole))
-          vals       (possible-vals board blocks)]
-      (solve-sudoku (apply conj boards (map #(assoc-in board hole-coord %) #p vals))))))
+    (let [hole (most-promising-hole board)
+          vals (possible-vals-at-hole board hole)]
+      (recur (apply conj boards (map
+                                 #(set-val-in-hole board hole %)
+                                 vals)))))) ; #'sudoku.core/solve-sudoku
 
-(solve-sudoku [sample-board])
-
-(solved? sample-board)
-
-(def sample-board
-  [[7 2 6 4 9 3 8 1 5]
-   [3 1 5 7 2 8 9 4 6]
-   [4 8 0 6 5 1 2 3 7] ; hole at [2 2] - val = 9
-   [8 5 2 1 4 7 6 9 3]
-   [6 7 3 9 8 5 1 2 4]
-   [9 4 1 3 6 2 7 5 8]
-   [1 9 4 8 3 6 5 7 2]
-   [5 6 7 2 1 4 3 8 9]
-   [2 3 8 5 7 9 4 6 1]])
+(defn solve-sudoku [board]
+  (solve-sudoku-rec [board]))
